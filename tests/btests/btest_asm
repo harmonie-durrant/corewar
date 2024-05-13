@@ -1,0 +1,74 @@
+#!/usr/bin/python3
+
+from btest_lib.check_args import check_args_asm as check_args
+from sys import argv as av
+import os
+
+S_FOLDER = "tests/champions/src/"
+ASM_BIN = "./asm/asm"
+REF_BIN = "./tests/asm_ref"
+
+def read_file(path):
+    try:
+        with open(path, "r") as f:
+            return f.read()
+    except Exception as e:
+        print(f"Error: {e}")
+        return ""
+
+def args_are_valid(asm_path, ref_path, s_file):
+    if not os.path.isfile(asm_path):
+        print(f"Error: {asm_path} is not a file.")
+        return False
+    if not os.path.isfile(ref_path):
+        print(f"Error: {ref_path} is not a file.")
+        return False
+    if not os.path.isfile(s_file):
+        print(f"Error: {s_file} is not a file.")
+        return False
+    return True
+
+def single_cmp(asm_path, ref_path, s_file):
+    mistmatch = False
+    f = os.path.basename(s_file).split(".")[0]
+
+    print(f"Testing {s_file}")
+    if not args_are_valid(asm_path, ref_path, s_file):
+        return 84
+    try:
+        asm_ret = os.WEXITSTATUS(os.system(f"{asm_path} {s_file} 2> /dev/null && hexdump -C {f}.cor > ref_dump"))
+        ref_ret = os.WEXITSTATUS(os.system(f"{ref_path} {s_file} 2> /dev/null && hexdump -C {f}.cor > asm_dump"))
+        asm_dump = read_file("asm_dump").splitlines()
+        ref_dump = read_file("ref_dump").splitlines()
+        os.system(f"rm -f asm_dump ref_dump {f}.cor")
+        for asm_line, ref_line in zip(asm_dump, ref_dump):
+            if asm_line != ref_line:
+                print(f"\n=== MISSMATCH ===\nREF: {ref_line}\nASM:{asm_line}\n=================")
+                mistmatch = True
+    except Exception as e:
+        print(f"ASM_CMP Error: {e}")
+        return 84
+    print(f"{f}.cor: ", end="")
+    print("KO ❌" if mistmatch or asm_ret != ref_ret else "OK ✅", end="")
+    print(f" (asm: {asm_ret} | ref: {ref_ret})\n")
+    return 84 if mistmatch or asm_ret != ref_ret else 0
+
+def folder_cmp():
+    error_flag = False
+    for f in os.listdir(S_FOLDER):
+        if f.endswith(".s") and single_cmp(ASM_BIN, REF_BIN, os.path.join(S_FOLDER, f)) == 84:
+            error_flag = True
+    return 84 if error_flag else 0
+
+def main():
+    (exit_code, bin, bin_ref, file) = check_args(len(av), av)
+    if exit_code == 1 or exit_code == 84:
+        if (exit_code == 1):
+            exit_code = 0
+        return exit_code
+    if bin == "" or bin_ref == "" or file == "":
+        return folder_cmp()
+    return single_cmp(bin, bin_ref, file)
+
+if __name__ == "__main__":
+    exit(main())

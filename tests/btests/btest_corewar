@@ -1,0 +1,57 @@
+#!/usr/bin/python3
+
+import sys
+import os
+
+from btest_lib.check_args import check_args_corewar as check_args
+from btest_lib.utils import run_file, print_results, is_diff_files
+
+av = sys.argv
+ac = len(av)
+
+def run_tests(bin, bin_ref, args):
+    passed = 0
+    failed = 0
+    test_number = 0
+    tmp_file = "__tmp__"
+    ref_file = "__tmp_ref__"
+
+    for arg in args:
+        ref_file = "__tmp_ref[" + str(test_number) + "]__"
+        tmp_file = "__tmp[" + str(test_number) + "]__"
+        expected = run_file(bin_ref, arg.split(), ref_file)
+        got = run_file(bin, arg.split(), tmp_file)
+        if expected == 1:
+            expected = 84
+        if got == expected:
+            if (is_diff_files(tmp_file, ref_file)):
+                print(f"✅ Outputs match.")
+                passed += 1
+                os.remove(ref_file)
+                os.remove(tmp_file)
+            else:
+                print(f"❌ Error: outputs differ. ({test_number})")
+                print(f"\t⚠️ Argument(s): {arg}.")
+                print(f"\t⚠️ See files: {tmp_file} and {ref_file} for more info.")
+                failed += 1
+        else:
+            print(f"❌ Error: expected {expected} but got {got}. ({test_number})")
+            print(f"\t⚠️ Argument(s): {arg}.")
+            failed += 1
+            os.remove(ref_file)
+            os.remove(tmp_file)
+        test_number += 1
+    return (passed, failed, test_number)
+
+def main(ac, av):
+    (exit_code, bin, bin_ref, args) = check_args(ac, av)
+    if exit_code == 1 or exit_code == 84:
+        if (exit_code == 1):
+            exit_code = 0
+        return exit_code
+    (passed, failed, total) = run_tests(bin, bin_ref, args)
+    print_results(passed, failed, total)
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main(ac, av))

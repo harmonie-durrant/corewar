@@ -1,0 +1,19 @@
+name: Create Branch and PR on Issue Create
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  create-branch-and-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: dev
+          
+      - name: Create Branch
+        run: |
+          issue_title=$(jq -r ".issue.title" $GITHUB_EVENT_PATH)
+          issue_title=${issue_title// /-}
+          git checkout -b dev-${issue_title,,}
+          git push --set-upstream origin dev-${issue_title,,}
